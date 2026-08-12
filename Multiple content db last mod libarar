@@ -1,0 +1,117 @@
+
+Add-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue
+
+# ---------- SETTINGS ----------13940 sites
+$ContentDbNames = @(
+)
+
+$WebAppUrl    = ""
+$ManagedPath  = "//"
+$ListInternal = ""
+$excl = "Audit log Reports", "Stijlbibliotheek", "Formuliersjablonen", "Documenten van siteverzameling"
+
+# Single combined output
+$OutCsv = "Cocumenten_ALL.csv"
+# -----------------------------
+
+# Combined rows for all DBs
+$allRows = New-Object System.Collections.Generic.List[object]
+
+foreach ($ContentDbName in $ContentDbNames) {
+    $prefix = $WebAppUrl.TrimEnd('/') + $ManagedPath
+
+    $db = Get-SPContentDatabase $ContentDbName
+    if (-not $db) { Write-Warning "Content database not found: $ContentDbName"; continue }
+
+    Write-Host "Scanning DB: $ContentDbName $prefix" -ForegroundColor Cyan
+
+    $candidates = @($db.Sites | Where-Object { $_.Url.StartsWith($prefix) })
+    $siteTotal  = $candidates.Count
+    $siteIndex  = 0
+
+    foreach ($sc in $candidates) {
+        $siteIndex++
+        $pct = [math]::Floor(($siteIndex / [math]::Max($siteTotal,1)) * 100)
+        Write-Progress -Id 1 -Activity "Scanning sites in DB: $ContentDbName" -Status "$siteIndex of $siteTotal : $($sc.Url)" -PercentComplete $pct
+
+        $site = $null
+        try {
+            $list = $null
+
+            $site = Get-SPSite $sc.Url
+            $web  = $site.RootWeb  
+
+            $list = $web.Lists | Where-Object {
+                $_.BaseTemplate -eq [Microsoft.SharePoint.SPListTemplateType]::DocumentLibrary -and
+                $_.RootFolder.Name -eq $ListInternal
+            } | Select-Object -First 1   # FIX
+
+            $libFound = ($list -ne $null -and $list.BaseTemplate -eq [Microsoft.SharePoint.SPListTemplateType]::DocumentLibrary)
+
+            $itemCount       = $null
+            $lastItemDateStr = $null
+
+            $listTitle       = $null
+            $listCreated     = $null
+            $listLastMod     = $null
+            $listLastItemDel = $null
+
+            if ($libFound) {
+                $itemCount       = $list.ItemCount
+                $listTitle       = $list.Title
+                $listCreated     = $list.RootFolder.TimeCreated
+                $listLastMod     = $list.RootFolder.TimeLastModified
+                $listLastItemDel = $list.LastItemDeletedDate
+
+                $q = New-Object Microsoft.SharePoint.SPQuery
+                $q.ViewAttributes = "Scope='RecursiveAll'"
+                $q.RowLimit       = 1
+                $q.Query          = "<OrderBy><FieldRef Name='Modified' Ascending='FALSE' /></OrderBy>"
+                $q.ViewFields     = "<FieldRef Name='ID' /><FieldRef Name='Modified' />"  
+
+                $res = $list.GetItems($q)
+                if ($res.Count -gt 0) {
+                    $lastItemDateStr = ([datetime]$res[0]["Modified"]).ToString('yyyy-MM-dd')  
+                }
+            }
+
+            $allRows.Add([pscustomobject]@{
+                DatabaseName                = $ContentDbName
+                SiteUrl                     = $sc.Url
+                SiteTitle                   = $site.RootWeb.Title
+                DocumentenFound             = $libFound
+                Documenten_ItemCount        = $itemCount
+                Documenten_LastItemModified = $lastItemDateStr 
+
+                listTitle                   = $listTitle
+                listCreated                 = $listCreated
+                listLastMod                 = $listLastMod
+                listLastItemDel             = $listLastItemDel
+            })
+        }
+        catch {
+            $allRows.Add([pscustomobject]@{
+                DatabaseName                = $ContentDbName
+                SiteUrl                     = $sc.Url
+                SiteTitle                   = $null
+                DocumentenFound             = $false
+                Documenten_ItemCount        = $null
+                Documenten_LastItemModified = $null
+                listTitle                   = $null    
+                listCreated                 = $null
+                listLastMod                 = $null
+                listLastItemDel             = $null
+                Error                       = $_.Exception.Message
+            })
+        }
+        finally {
+            if ($site) { $site.Dispose() }
+        }
+    }
+}
+
+$allRows |
+    Sort-Object DatabaseName, SiteUrl |
+    Export-Csv -Path $OutCsv -NoTypeInformation -Encoding UTF8
+
+Write-Host "Done. Databases scanned: $($ContentDbNames.Count) | Rows: $($allRows.Count) | Output: $OutCsv" -ForegroundColor Green
