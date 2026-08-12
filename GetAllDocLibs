@@ -1,0 +1,23 @@
+
+$webapp=""
+
+$Siteurl=""
+$sitecoll=Get-SPSite $Siteurl
+$counter=0
+Foreach($web in $sitecoll.AllWebs)
+{
+    Write-host -f Yellow "Processing Site: "$Web.URL
+   
+    #Get all Document Libraries - Exclude Hidden and System libraries
+    $DocumentLibraries = $web.lists | Where-Object { ($_.hidden -eq $false) -and ($_.IsSiteAssetsLibrary -eq $false)  -and ($_.BaseType -eq "DocumentLibrary")}
+  
+    #Iterate through All lists and Libraries
+    ForEach ($Library in $DocumentLibraries)
+    {
+    if($Library.Title -eq "Documenten")
+    {
+    $Library.ItemCount
+        $counter=$Library.ItemCount+$counter;
+        }
+    }
+}
