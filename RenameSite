@@ -1,0 +1,7 @@
+$sites=Import-Csv -Path "C:\Users\shefalib\Downloads\Book1.csv"
+Connect-PnPOnline -Url $SPadmin -ClientID $PnPClientId -Interactive
+
+foreach ($site in $sites) {
+   Write-Host "Renaming $($site.old) to $($site.new)..."
+    Rename-PnPTenantSite -Identity $site.old -NewSiteUrl $site.new
+}
