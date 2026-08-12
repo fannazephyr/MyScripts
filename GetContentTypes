@@ -1,0 +1,238 @@
+cls
+
+#Variables
+$url = ""
+$lib = "Documenten" 
+$ctfile = "ctfile"
+$ctfields= "ctfieldsfile"
+
+#Connect to SharePoint Online
+Write-Host "Importing module"
+
+#Import-Module PnP.PowerShell #-RequiredVersion 1.12.0
+Try {
+    Write-host "Connecting to tenant"
+    Connect-PnPOnline -Url $url -CurrentCredentials
+    Write-host "Connected to tenant" -ForegroundColor Green
+}
+Catch {
+    Write-host "Connection failed" -ForegroundColor Red
+    Write-Host  $($_.exception.message)
+    Break
+}
+
+$ReportDate = Get-Date -Format "yyyyMMddhhmm" 
+$sitename = (Get-PnPWeb).Title
+$ctfileLoc = "D:\Temp\$($sitename)_$($ctfile)_$($ReportDate).csv"
+$ctfieldsfileLoc = "D:\Temp\$($sitename)_$($ctfields)_$($ReportDate).csv"
+
+[System.Collections.ArrayList]$ctypeCollection = @()
+[System.Collections.ArrayList]$ctfieldsCollection = @()
+
+$ctypes = Get-PnPContentType -List $lib
+
+Foreach ($ctype in $ctypes) {
+    $listctype = Get-PnPContentType -Identity $ctype.Name -List $lib
+    $listcFields = Get-PnPProperty -ClientObject $listctype -Property Name,id,parent,Fields
+    Write-Host "Name         "$listctype.Name -ForegroundColor Green
+    Write-Host "ID           "$listctype.id.StringValue
+    Write-Host "ParentID     "$listctype.Parent.id.StringValue
+    Write-Host "ParentName   "$listctype.Parent.Name -ForegroundColor Cyan
+    Write-Host
+    $ctObject = [PSCustomObject]@{
+        Name = $listctype.Name
+        ID  =  $listctype.id.StringValue
+        Group = $listctype.Group
+        ParentID = $listctype.Parent.id.StringValue
+        ParentName = $listctype.Parent.Name
+        ParentGroup = $listctype.Parent.Group
+    }
+    $ctypeCollection.Add($ctObject) | Out-Null
+
+    $listcFields = Get-PnPProperty -ClientObject $listctype -Property Fields
+    foreach ($listcField in ($listcFields | ?{$_.hidden -eq $False -and $_.Group -notlike "_Hidden"})) {
+        Write-Host "Field Name         "$listcField.Title
+        Write-Host "Field ID           "$listcField.Id
+        Write-Host "Field InternalName "$listcField.InternalName
+        Write-Host "Field Group        "$listcField.Group
+        Write-Host
+        $ctfieldsObject = [PSCustomObject]@{
+            Name = $listctype.Name
+            ID  =  $listctype.id.StringValue
+            Group = $listctype.Group
+            ParentID = $listctype.Parent.id.StringValue
+            ParentName = $listctype.Parent.Name
+            ParentGroup = $listctype.Parent.Group
+            FieldName = $listcField.Title
+            FieldID           = $listcField.Id
+            FieldInternalName = $listcField.InternalName
+            FieldType         = $listcField.TypeAsString
+            FieldGroup        = $listcField.Group
+        }
+        $ctfieldsCollection.Add($ctfieldsObject) | Out-Null
+    }
+
+    $parentctype = Get-PnPContentType -Identity $listctype.Parent.Name
+    $parentcFields = Get-PnPProperty -ClientObject $parentctype -Property Name,id,parent
+    Write-Host "Name         "$parentctype.Name -ForegroundColor cyan
+    Write-Host "ID           "$parentctype.id.StringValue
+    Write-Host "ParentID     "$parentctype.Parent.id.StringValue
+    Write-Host "ParentName   "$parentctype.Parent.Name -ForegroundColor DarkYellow
+    Write-Host
+    $ctObject = [PSCustomObject]@{
+        Name = $parentctype.Name
+        ID  =  $parentctype.id.StringValue
+        Group = $parentctype.Group
+        ParentID = $parentctype.Parent.id.StringValue
+        ParentName = $parentctype.Parent.Name
+        ParentGroup = $parentctype.Parent.Group
+    }
+    $ctypeCollection.Add($ctObject) | Out-Null
+
+    $parentcFields = Get-PnPProperty -ClientObject $parentctype -Property Fields
+    foreach ($parentcField in ($parentcFields | ?{$_.hidden -eq $False -and $_.Group -notlike "_Hidden"})){
+        Write-Host "Field Name         "$parentcField.Title
+        Write-Host "Field ID           "$parentcField.Id
+        Write-Host "Field InternalName "$parentcField.InternalName
+        Write-Host "Field Group        "$parentcField.Group
+        Write-Host
+        $ctfieldsObject = [PSCustomObject]@{
+            Name              = $parentctype.Name
+            ID                =  $parentctype.id.StringValue
+            Group             = $parentctype.Group
+            ParentID          = $parentctype.Parent.id.StringValue
+            ParentName        = $parentctype.Parent.Name
+            ParentGroup       = $parentctype.Parent.Group
+            FieldName         = $parentcField.Title
+            FieldID           = $parentcField.Id
+            FieldInternalName = $parentcField.InternalName
+            FieldType         = $parentcField.TypeAsString
+            FieldGroup        = $parentcField.Group
+        }
+        $ctfieldsCollection.Add($ctfieldsObject) | Out-Null
+    }
+
+
+    $Pparentctype = Get-PnPContentType -Identity $parentctype.Parent.Name
+    $PparentcFields = Get-PnPProperty -ClientObject $Pparentctype -Property Name,id,parent
+    Write-Host "Name         "$Pparentctype.Name -ForegroundColor DarkYellow
+    Write-Host "ID           "$Pparentctype.id.StringValue
+    Write-Host "ParentID     "$Pparentctype.Parent.id.StringValue
+    Write-Host "ParentName   "$Pparentctype.Parent.Name -ForegroundColor Red
+    Write-Host
+    $ctObject = [PSCustomObject]@{
+        Name = $Pparentctype.Name
+        ID  =  $Pparentctype.id.StringValue
+        Group = $Pparentctype.Group
+        ParentID = $Pparentctype.Parent.id.StringValue
+        ParentName = $Pparentctype.Parent.Name
+        ParentGroup = $Pparentctype.Parent.Group
+    }
+    $ctypeCollection.Add($ctObject) | Out-Null
+
+    $PparentcFields = Get-PnPProperty -ClientObject $Pparentctype -Property Fields
+    foreach ($PparentcField in ($PparentcFields | ?{$_.hidden -eq $False -and $_.Group -notlike "_Hidden"})){
+        Write-Host "Field Name         "$PparentcField.Title
+        Write-Host "Field ID           "$PparentcField.Id
+        Write-Host "Field InternalName "$PparentcField.InternalName
+        Write-Host "Field Group        "$PparentcField.Group
+        Write-Host
+        $ctfieldsObject = [PSCustomObject]@{
+            Name              = $Pparentctype.Name
+            ID                =  $Pparentctype.id.StringValue
+            Group             = $Pparentctype.Group
+            ParentID          = $Pparentctype.Parent.id.StringValue
+            ParentName        = $Pparentctype.Parent.Name
+            ParentGroup       = $Pparentctype.Parent.Group
+            FieldName         = $PparentcField.Title
+            FieldID           = $PparentcField.Id
+            FieldInternalName = $PparentcField.InternalName
+            FieldType         = $PparentcField.TypeAsString
+            FieldGroup        = $PparentcField.Group
+        }
+        $ctfieldsCollection.Add($ctfieldsObject) | Out-Null
+    }
+    
+    $CPparentctype = Get-PnPContentType -Identity $Pparentctype.Parent.Name
+    $CPparentcFields = Get-PnPProperty -ClientObject $CPparentctype -Property Name,id,parent
+    Write-Host "Name         "$CPparentctype.Name -ForegroundColor Red
+    Write-Host "ID           "$CPparentctype.id.StringValue
+    Write-Host "ParentID     "$CPparentctype.Parent.id.StringValue
+    Write-Host "ParentName   "$CPparentctype.Parent.Name -ForegroundColor Yellow
+    Write-Host
+    $ctObject = [PSCustomObject]@{
+        Name = $CPparentctype.Name
+        ID  =  $CPparentctype.id.StringValue
+        Group = $CPparentctype.Group
+        ParentID = $CPparentctype.Parent.id.StringValue
+        ParentName = $CPparentctype.Parent.Name
+        ParentGroup = $CPparentctype.Parent.Group
+    }
+    $ctypeCollection.Add($ctObject) | Out-Null
+
+    $CPparentcFields = Get-PnPProperty -ClientObject $CPparentctype -Property Fields
+    foreach ($CPparentcField in ($CPparentcFields | ?{$_.hidden -eq $False -and $_.Group -notlike "_Hidden"})){
+        Write-Host "Field Name         "$CPparentcField.Title
+        Write-Host "Field ID           "$CPparentcField.Id
+        Write-Host "Field InternalName "$CPparentcField.InternalName
+        Write-Host "Field Group        "$CPparentcField.Group
+        Write-Host
+        $ctfieldsObject = [PSCustomObject]@{
+            Name = $CPparentctype.Name
+            ID  =  $CPparentctype.id.StringValue
+            Group = $CPparentctype.Group
+            ParentID = $CPparentctype.Parent.id.StringValue
+            ParentName = $CPparentctype.Parent.Name
+            ParentGroup = $CPparentctype.Parent.Group
+            FieldName = $CPparentcField.Title
+            FieldID           = $CPparentcField.Id
+            FieldInternalName = $CPparentcField.InternalName
+            FieldType         = $CPparentcField.TypeAsString
+            FieldGroup        = $CPparentcField.Group
+        }
+        $ctfieldsCollection.Add($ctfieldsObject) | Out-Null
+    }
+    $TCPparentctype = Get-PnPContentType -Identity $CPparentctype.Parent.Name
+    $TCPparentcFields = Get-PnPProperty -ClientObject $TCPparentctype -Property Name,id,parent
+    Write-Host "Name         "$TCPparentctype.Name -ForegroundColor Yellow
+    Write-Host "ID           "$TCPparentctype.id.StringValue
+    Write-Host "ParentID     "$TCPparentctype.Parent.id.StringValue
+    Write-Host "ParentName   "$TCPparentctype.Parent.Name
+    Write-Host
+    $ctObject = [PSCustomObject]@{
+        Name = $TCPparentctype.Name
+        ID  =  $TCPparentctype.id.StringValue
+        Group = $TCPparentctype.Group
+        ParentID = $TCPparentctype.Parent.id.StringValue
+        ParentName = $TCPparentctype.Parent.Name
+        ParentGroup = $TCPparentctype.Parent.Group
+    }
+    $ctypeCollection.Add($ctObject) | Out-Null
+       
+    $TCPparentcFields = Get-PnPProperty -ClientObject $TCPparentctype -Property Fields
+    foreach ($TCPparentcField in ($TCPparentcFields | ?{$_.hidden -eq $False -and $_.Group -notlike "_Hidden"})){
+        Write-Host "Field Name         "$TCPparentcField.Title
+        Write-Host "Field ID           "$TCPparentcField.Id
+        Write-Host "Field InternalName "$TCPparentcField.InternalName
+        Write-Host "Field Group        "$TCPparentcField.Group
+        Write-Host
+        $ctfieldsObject = [PSCustomObject]@{
+            Name = $TCPparentctype.Name
+            ID  =  $TCPparentctype.id.StringValue
+            Group = $TCPparentctype.Group
+            ParentID = $TCPparentctype.Parent.id.StringValue
+            ParentName = $TCPparentctype.Parent.Name
+            ParentGroup = $TCPparentctype.Parent.Group
+            FieldName = $listcField.Title
+            FieldID           = $TCPparentcField.Id
+            FieldInternalName = $TCPparentcField.InternalName
+            FieldType         = $TCPparentcField.TypeAsString
+            FieldGroup        = $TCPparentcField.Group
+        }
+        $ctfieldsCollection.Add($ctfieldsObject) | Out-Null
+    }
+    Write-Host "----------------------------------------------------"
+
+} 
+$ctypeCollection | Export-Csv -Path $ctfileLoc -Encoding UTF8 -NoTypeInformation
+$ctfieldsCollection | Export-Csv -Path $ctfieldsfileLoc -Encoding UTF8 -NoTypeInformation
