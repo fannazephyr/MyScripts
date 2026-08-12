@@ -1,0 +1,17 @@
+# Add the SharePoint PowerShell snap-in
+Add-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue
+
+# Set the URL of your web application
+$WebAppURL = "http://yourwebappurl"
+
+# Get the web application
+$WebApp = Get-SPWebApplication $WebAppURL
+
+# Get all site collections from the web application
+$WebApp.Sites | ForEach-Object {
+    New-Object -TypeName PSObject -Property @{
+        SiteName = $_.RootWeb.Title
+        Url = $_.Url
+        DatabaseName = $_.ContentDatabase.Name
+    }
+} | Format-Table -AutoSize
