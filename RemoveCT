@@ -1,0 +1,4 @@
+foreach ($ct in $contentTypes) {
+
+Remove-PnPContentTypeFromList -List $InternallibraryName -ContentType $ct 
+}
