@@ -1,0 +1,65 @@
+cls
+Add-PSSnapin *sha* -ea SilentlyContinue
+$Outputfolder = "D:\Beheer\Cegeka\\"
+$exportFileName = "LibraryInventory_"
+
+##Set output path
+$ReportDate = Get-Date -Format "yyyyMMddHHmm"
+$Output = $Outputfolder + $exportFileName  + "_" + $ReportDate + ".csv"
+
+
+$collection = @()
+
+Write-Host "Getting contentdb's"
+$dbs = Get-SPContentDatabase -WebApplication DMS1 | Sort Name
+$dbCount = $dbs.Count
+$dbCounter = 0
+Write-Host "Collected $dbCount databases"
+
+Foreach ($db in $dbs) {
+    $dbCounter += 1 
+    Write-Host -ForegroundColor Cyan "db $dbCounter of $dbCount - $($db.Name)"
+    Write-Host "Getting sites in contentdb"
+    $scs = Get-SPSite -ContentDatabase $db.Name -Limit All | ? {$_.url -like "*/instellingen/*" -or $_.url -like "*/personen/*"} | sort Url
+    $scCount = $scs.Count
+    $scCounter = 0
+    Write-Host "Collected $scCount site collections"
+    
+    foreach ($sc in $scs) {
+        $scCounter += 1
+        Write-Host -ForegroundColor DarkYellow "db $dbCounter of $dbCount - sc $scCounter of $scCount - $($sc.url)"
+        $webs = Get-SPWeb -Site $sc.url -Limit all | sort Url
+
+        if ($webs) {
+            foreach ($web in $webs) {
+                Write-host "Processing web $($web.url)"
+                $lists = $web.Lists | ? {$_.hidden -eq $false -and $_.IsSiteAssetsLibrary -eq $false -and $_.basetemplate -eq 101 -and $_.itemcount -ne 0 -and $_.title -notlike "Audit log Reports"-and $_.title -notlike "Stijlbibliotheek"}
+                #$lists | Select title | Sort Title | Format-Table -AutoSize
+            
+                $collection  += [PSCustomObject]@{
+                    siteUrl       = $sc.url
+                    db            = $db.Name
+                    webCount      = $webs.Count
+                    webUrl        = $web.url
+                    listCountNot0 = $lists.count
+                    lists         = $lists  -join ","
+                } | Export-Csv -Path $Output -NoClobber -Encoding UTF8 -Append
+                $collection.Clear()
+            }
+        }
+        else {
+            write-host -ForegroundColor Red "No web found"
+            $collection  += [PSCustomObject]@{
+                siteUrl       = $sc.url
+                db            = $db.Name
+                webCount      = $webs.Count
+                webUrl        = $web.url
+                listCountNot0 = $lists.count
+                lists         = $lists  -join ","
+            }  | Export-Csv -Path $Output -NoClobber -Encoding UTF8 -Append
+            $collection.Clear()
+
+        }
+    }
+    write-host
+}
