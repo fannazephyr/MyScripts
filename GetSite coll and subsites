@@ -1,0 +1,31 @@
+# Add the SharePoint PowerShell snap-in
+Add-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue
+
+# Get all site collections and filter out personal sites
+$siteCollections = Get-SPSite -Limit All | Where-Object { $_.Url -notlike "*personal*" }
+
+# Initialize an array to hold the results
+$allSites = @()
+
+# Loop through each filtered site collection
+foreach ($site in $siteCollections) {
+    # Add the site collection to the results
+    $allSites += New-Object PSObject -Property @{
+        SiteName = $site.RootWeb.Title
+        SiteURL = $site.Url
+        IsSubSite = $false
+    }
+
+    # Get all subsites for the current site collection
+    $subSites = $site.AllWebs
+    foreach ($subSite in $subSites) {
+        $allSites += New-Object PSObject -Property @{
+            SiteName = $subSite.Title
+            SiteURL = $subSite.Url
+            IsSubSite = $true
+        }
+    }
+}
+
+# Display the results
+$allSites | Format-Table -AutoSize
