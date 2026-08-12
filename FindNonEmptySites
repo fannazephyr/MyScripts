@@ -1,0 +1,83 @@
+cls
+Add-PSSnapin *Sha* -ea SilentlyContinue 
+
+#Variables
+$outputFileName = ""
+$outputFileName2 = ""
+$outputFolder = "D:\output\"
+$rootSite = ""
+$excl = "Audit log Reports", "Stijlbibliotheek", "Formuliersjablonen", "Documenten van siteverzameling"
+$rootSite = ""
+$Collection = @()
+
+
+$reportDate = Get-Date -Format "yyyyMMddHHmm"
+$pathNotEmpty = $outputFolder + $outputFileName + "_" + $reportDate + ".csv"
+$pathEmpty = $outputFolder + $outputFileName2 + "_" + $reportDate + ".csv"
+
+Write-Host "Getting contentdb's"
+$dbs = Get-SPContentDatabase -WebApplication DMS1 | Sort Name
+$dbCount = $dbs.Count
+$dbCounter = 0
+Write-Host "Collected $dbCount databases"
+
+Foreach ($db in $dbs) {
+    $dbCounter ++
+    Write-Progress -Id 0 -activity "Scanning db $($db.name) . . ." -status "Scanned: $dbCounter of $dbCount" -percentComplete (($dbCounter / $dbCount)  * 100) 
+    $pathList = $outputFolder + $outputFileNameListCt + "_Pers_" + $dbCounter + "_" + $reportDate + ".csv"
+    Write-Host -ForegroundColor Cyan "db $dbCounter of $dbCount - $($db.Name)"
+    Write-Host "Getting sites in contentdb"
+    
+    $scs = Get-SPSite -ContentDatabase $db.Name -Limit All | ? {$_.url -like "*/instellingen/*"} | sort Url
+    $scCount = $scs.Count
+    $scCounter = 0
+    Write-Host "Collected $scCount site collections"
+    
+    foreach ($sc in $scs) {
+        $scCounter ++
+        Write-Progress -Id 1 -ParentId 0 -activity "Scanning sitecollection $($sc.url) . . ." -status "Scanned: $scCounter of $scCount" -percentComplete (($scCounter / $scCount)  * 100)
+        
+        Write-host "Getting sitecollection $($sc.url)"
+        $site = Get-SPSite $sc.Url
+        Write-Host "Collecting webs"
+        $webs = Get-SPWeb -Site $site.url -limit all
+
+        foreach ($web in $webs) {
+            Write-host "$($web.Url)" -ForegroundColor Cyan
+        
+            $lists = $web.Lists | ? {$_.hidden -eq $false -and $_.IsSiteAssetsLibrary -eq $false -and $_.basetemplate -eq 101 -and $_.title -notin $excl} | Sort Title
+            $listCount = ($web.Lists | ? {$_.hidden -eq $false -and $_.IsSiteAssetsLibrary -eq $false -and $_.basetemplate -eq 101 -and $_.title -notin $excl}).count
+            $listCounter = 0
+            Write-host "Collected $($listCount) lists" -ForegroundColor Cyan
+
+            foreach ($list in $lists) {
+                $listCounter++
+                Write-Progress -Id 2 -ParentId 1 -activity "Scanning List $($list.Title) . . ." -status "Scanned: $listCounter of $($listCount)" -percentComplete (($listCounter  / $listCount)  * 100)
+                Write-host "Processing list $($listCounter) - $($listCount) - $($list.Title)"
+                $ListFolderCount = ($list.Items | ? {$_.FileSystemObjectType -eq "Folder"}).count
+                $ListItemCount = ($list.Items | ? {$_.FileSystemObjectType -eq "File"}).count
+
+                if ($ListItemCount -notlike 0) {
+                    $Collection += [PSCustomObject]@{
+                        url             = $web.Url
+                        list            = $list.Title
+                        listFolderCount = $ListFolderCount
+                        listItemCount   = $ListItemCount
+                    }  |  Export-Csv -path $pathNotEmpty -NoTypeInformation -NoClobber -Encoding UTF8 -Append
+                }
+                else {
+                    $Collection += [PSCustomObject]@{
+                        url             = $web.Url
+                        list            = $list.Title
+                        listFolderCount = $ListFolderCount
+                        listItemCount   = $ListItemCount
+                    }  |  Export-Csv -path $pathEmpty -NoTypeInformation -NoClobber -Encoding UTF8 -Append
+                }
+                $Collection.Clear() 
+
+            }
+            
+        }
+        Write-Host
+    }
+}
