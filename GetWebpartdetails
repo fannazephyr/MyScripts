@@ -1,0 +1,44 @@
+Get web part details for all the sites and web in a web application. For all pages.
+
+Add-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue
+ 
+$webs = Get-SPWebApplication "" | Get-SPSite -Limit All | Get-SPWeb -Limit All
+
+foreach ($web in $webs) {
+    $web.Url
+    #Get All Pages from site's Root into $AllPages Array
+    $AllPages = @($web.Files | Where-Object {$_.Name -match ".aspx"})
+ 
+
+    foreach ($folder in $web.Folders) {
+        if($folder.Name -ne "Forms") {
+            
+
+            $AllPages += @($folder.Files | Where-Object {$_.Name -match ".aspx"})
+        }
+    }
+ 
+
+    foreach($Page in $AllPages) {
+        $WebPartManager = $web.GetLimitedWebPartManager( $Page.ServerRelativeUrl,[System.Web.UI.WebControls.WebParts.PersonalizationScope]::Shared)
+ 
+        foreach($webPart in $WebPartManager.WebParts) {
+
+            if (($webPart.GetType() -eq [Microsoft.SharePoint.WebPartPages.ContentEditorWebPart]) -or ($webPart.GetType() -eq [Microsoft.SharePoint.WebPartPages.ScriptEditorWebPart]) -or ($webPart.GetType() -eq [Microsoft.Office.Server.Search.WebControls.ContentBySearchWebPart]) -or ($webPart.GetType() -eq [Microsoft.Office.Server.Search.WebControls.ResultScriptWebPart])) {
+                $OldContent =  $webPart.Content
+                $OldContentXml = $OldContent.InnerText
+                $part = $webPart.DataProviderJSON | ConvertFrom-Json -ea SilentlyContinue
+                Write-host " ---------------------------------------" -ForegroundColor Yellow
+                Write-host $page.ServerRelativeUrl -ForegroundColor Green
+                Write-host $Page.Name -ForegroundColor Green
+                Write-host $webPart.Title -ForegroundColor Green
+                Write-host $webPart.WebBrowsableObject -ForegroundColor Green
+                Write-Host $OldContent -ForegroundColor Cyan
+                Write-Host $OldContentXml
+                Write-Host $part.Querytemplate -ForegroundColor Magenta
+                Write-host " ---------------------------------------" -ForegroundColor Yellow
+                Write-host
+            }
+        }
+    }
+}
