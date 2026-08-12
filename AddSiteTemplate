@@ -1,0 +1,12 @@
+$siteurl=""
+$title ="HelloSiteteMPLATE"
+$DESCRP="my test site template"
+$sitescriptfile="C:\temp\newfile.txt"
+$webTemp="64"
+
+Connect-SPOService $siteurl
+
+$jsonfilecontent= Get-Content $sitescriptfile -Raw
+$sitescript= Add-SPOSiteScript -Title $title -Content $jsonfilecontent | select -First 1 Id
+Add-SPOSiteDesign -SiteScripts $sitescript.Id -Title $title -WebTemplate $webTemp -Description $DESCRP
+#add site template to admin center
