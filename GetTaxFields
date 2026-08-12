@@ -1,0 +1,44 @@
+cls
+Add-PSSnapin *sha* -ea SilentlyContinue
+
+#variables
+$url = ""
+$list = "Documenten"
+$splist = "Documenten abc"
+$path = "D:\temp\TaxDMS20250714.xml"
+
+$site =get-spsite $url
+$web = $site.OpenWeb()
+$list = $web.Lists[$splist]
+
+[System.Collections.ArrayList]$collection = @() 
+Connect-PnPOnline -Url $url -CurrentCredentials #-Credentials (Get-Credential)
+
+
+$fields = Get-PnPField -list $splist | ? {$_.TypeAsString -like "TaxonomyFieldType*"}
+foreach ($field in $fields) {
+    Write-host "$($field.title)"
+    $ft = $field.title
+    $cfield = $list.Fields[$ft]
+    $taxonomyField = [Microsoft.SharePoint.Taxonomy.TaxonomyField]$cfield
+    $termSetId = $taxonomyField.TermSetId
+    $tGroups = Get-PnPTermGroup
+    foreach ($tGroup in $tGroups) {
+        $tSets = Get-PnPTermSet -TermGroup $tGroup
+        foreach ($tSet in $tSets) {
+            
+            if ($tSet.Id.GUID.ToString() -like $termSetId.guid.ToString()) {
+                $termPath = "$($tGroup.Name)|$($tSet.Name)"
+            }
+        }
+    }
+    Write-Output "Term Set ID: $($termSetId.guid)"
+    Write-Output "Term Path: $termPath"
+    $mObject = [PSCustomObject]@{
+        Field     = $field.title
+        TermSetID = $termSetId.guid
+        TermPath  = $termPath
+    }
+    $collection.add($mObject) | Out-Null 
+}
+$collection
