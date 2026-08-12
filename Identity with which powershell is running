@@ -1,0 +1,2 @@
+$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+Write-Output "PowerShell ISE is running as: $identity"
