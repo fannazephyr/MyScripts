@@ -1,0 +1,10 @@
+$flowUrl = "https://default9093514ce1bd43538feca9f77172d2.05.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/984f018ca6a94453a0c55b09163373cc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=WYekDKzh1gOfK-iT-D_thnbW8gjmIReEenxvIj38dQM"
+$body = @{
+    siteUrl = ""
+
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod -Uri $flowUrl -Method Post -Body $body -ContentType "application/json"
+
+
+
