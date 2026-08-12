@@ -1,0 +1,33 @@
+$associatedSites = Import-Csv -Path $sitesFile
+foreach ($site in $associatedSites) {
+    $Insturl = "https://asdfg/sites/" + $site.newSiteName
+    if ($Insturl -ne $siteURL) {
+        TenantConnect -Url $Insturl -PnPClientId $PnPClientId
+
+        $existingList = Get-PnPList -Identity $InternallibraryName -Includes ContentTypes, RootFolder.UniqueContentTypeOrder -ErrorAction SilentlyContinue 
+        if ($existingList) {
+            LogAction "Starting to add CTs" -foregroundcolor Gray
+
+            #region Add New CT
+            try {
+                foreach ($ct in $contentTypes) {
+                    try {
+                        Add-PnPContentTypeToList -List $InternallibraryName -ContentType $ct 
+                    }
+                    catch {
+                        LogAction $_.exception.message -foregroundcolor Red
+                        LogAction "❌ Adding $ct failed" -foregroundcolor Red
+                    }
+                }
+                LogAction "Content Types updated" -foregroundcolor Green
+            }
+            catch {
+                LogAction "❌ Adding Content Types failed" -foregroundcolor Red
+                LogAction $_.exception.message -foregroundcolor Red
+            }
+            #endregion
+        }
+        LogAction "===============================================================================" -foregroundcolor DarkMagenta
+
+    }
+}
