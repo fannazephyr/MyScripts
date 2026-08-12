@@ -1,0 +1,44 @@
+# Add the SharePoint PowerShell snap-in
+Add-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue
+
+# Get all site collections and filter out personal sites
+$siteCollections = Get-SPSite -Limit All | Get-SPWeb -Limit All |Where-Object { $_.Url -notlike "*personal*" }
+
+# Initialize an array to hold the results
+$allSites = @()
+
+# Loop through each filtered site collection
+foreach ($site in $siteCollections) {
+        $recentModifiedDate = $null
+        $ownername=$null
+               $userNames = $site.AssociatedOwnerGroup.Users | ForEach-Object { $_.Email }
+$userString = [string]::Join(", ", $userNames)
+        
+
+    foreach ($list in $site.Lists) {
+        if ($list.ItemCount -gt 0) {
+            # Check if the current list's last modified date is more recent
+            if ($recentModifiedDate -eq $null -or $list.LastItemModifiedDate -gt $recentModifiedDate) {
+                $recentModifiedDate = $list.LastItemModifiedDate
+            }
+        }
+    }
+
+
+    $allSites += New-Object PSObject -Property @{
+        SiteName = $site.Title
+        SiteURL = $site.Url
+        #IsSubSite = $false
+        lastmod=$recentModifiedDate
+         Ownerr= $userString
+       
+        
+    }
+     $allSites| Format-Table -AutoSize
+
+   
+}
+
+# Display the results
+$allSites | Format-Table -AutoSize
+$allSites | Export-Csv -Path "C:\Temp\SPDockit\SiteDetails\Output.csv" -NoTypeInformation -Encoding UTF8 -Delimiter ";"
