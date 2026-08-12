@@ -1,0 +1,22 @@
+Pnp powershell using CSOM under the hood
+
+$doclib = Get-PnPList -Identity $internallibraryName -Includes ContentTypes, RootFolder.UniqueContentTypeOrder
+
+# Get the root folder
+$rootFolder = $doclib.RootFolder
+
+# Get the content type you want to hide
+$contentTypeToHide = Get-PnPContentType -List $doclib -Identity "AFM folder"
+
+# Create a new list of content types excluding the one to hide
+$list = New-Object 'System.Collections.Generic.List[Microsoft.SharePoint.Client.ContentTypeId]'
+foreach ($i in $rootFolder.UniqueContentTypeOrder) {
+    if ($i.StringValue -ne $contentTypeToHide.StringId) {
+        $list.Add($i)
+    }
+}
+
+# Update the UniqueContentTypeOrder
+$rootFolder.UniqueContentTypeOrder = $list
+$rootFolder.Update()
+$doclib.Update()
