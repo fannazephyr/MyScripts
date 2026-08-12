@@ -1,0 +1,30 @@
+Add-PSSnapin *sha* -ea SilentlyContinue
+$ReportDate = Get-Date -Format "yyyyMMddHHmm"
+$Output = "Output\personenCreated_" + $ReportDate + ".csv"
+$collection = @()
+
+
+$ctDBS = Get-SPContentDatabase | Sort Name
+$dbcount = $ctDBS.Count
+$dbcounter = 0
+
+Foreach ($ctDB in $ctDBS) {
+    $dbcounter ++
+    Write-Progress -Id 0 -activity "Scanning db $($ctdb.name) . . ." -status "Scanned: $dbCounter of $dbCount" -percentComplete (($dbCounter / $dbCount)  * 100) 
+    Write-Host $ctDB.name
+
+    $sites = Get-SPSite -Limit All -ContentDatabase $ctDB.Name | ? {$_.url -like "*personen*"}
+
+    $siteCount = $sites.Count
+    $siteCounter = 0
+    foreach ($site in $sites) {
+        $siteCounter ++
+        Write-Progress -Id 1 -ParentId 0 -activity "Scanning site $($site.url) . . ." -status "Scanned: $siteCounter of $siteCount" -percentComplete (($siteCounter / $siteCount)  * 100) 
+        write-host $site.url
+        $collection += [PSCustomObject]@{
+            siteUrl     = $site.Url
+            siteCreated = $site.RootWeb.Created
+        } | Export-Csv $Output -NoTypeInformation -Encoding UTF8 -Append -Force 
+        $collection.Clear()
+    }
+}
