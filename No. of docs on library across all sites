@@ -1,0 +1,40 @@
+Export number of number of dcuments in document library across all subsites and sites under a site collectionL:
+$site=Get-SPSite ""
+ foreach ($web in $Site.AllWebs) {
+    Write-host -f Yellow "Processing Site: "$Web.URL
+  
+    #Get all lists - Exclude Hidden System lists
+    $ListCollection = $web.lists | Where-Object  { ($_.hidden -eq $false) -and ($_.IsSiteAssetsLibrary -eq $false) -and ($_.BaseType -eq "DocumentLibrary")}
+   
+
+    #Iterate through All lists and Libraries
+    ForEach ($List in $ListCollection)
+    {
+  
+    if($List.RootFolder.Url.Contains("Documents" ))
+    {
+    
+             Write-host " ---------------------------------------" -ForegroundColor Yellow
+             Write-host 'Site Title' = $Web.Title
+             Write-host 'Site URL' = $Web.URL
+             Write-host 'List-Library Name' = $List.Title
+             Write-host 'Item Count' = $List.ItemCount
+           # Write-host  'Created By' = $List.Author.DisplayName,# Write-host 'Last Modified' = $List.LastItemModifiedDate.ToString();
+             Write-host 'List URL' = "$($Web.Url)/$($List.RootFolder.Url)"
+              Write-host " ---------------------------------------" -ForegroundColor Yellow
+              Write-host
+              $customObject = [PSCustomObject]@{
+
+               'Site Title' = $Web.Title
+            'Site URL' = $Web.URL
+            'List-Library Name' = $List.Title
+            'Item Count' = $List.ItemCount
+            'Last Modified' = $List.LastItemModifiedDate.ToString();
+            'List URL' = "$($Web.Url)/$($List.RootFolder.Url)"
+            }
+              $exportData += $customObject
+              $exportData
+     }
+    }
+}
+$exportData | Export-Csv -Path "C:\csvfile1.csv" -NoTypeInformation
