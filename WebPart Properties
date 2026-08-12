@@ -1,0 +1,19 @@
+
+$siteUrl = ""
+
+Connect-PnPOnline -Url $siteUrl  -CurrentCredentials
+
+$serverRelativePageUrl = "/Paginas/Home.aspx"
+$webparts=Get-PnPWebPart -ServerRelativePageUrl $serverRelativePageUrl
+$webparts
+foreach ($webpart in $webParts) {
+if(-not $webpart.WebPart.Hidden)
+{
+      $webPartProperties = $webpart.WebPart.Properties.FieldValues
+    $webPartType = $webPartProperties["Content"]
+    
+    Write-Host  $webpart.WebPart.Title
+   
+        
+        }
+}
