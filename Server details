@@ -1,0 +1,5 @@
+get-spserver | Select name,role
+
+Get-SPServer | ? {$_.Name -notlike "SP3App01"} | ForEach-Object {$server = $_ 
+    Get-SPServiceInstance -Server $server | Where-Object { $_.Status -eq "Online" } | Select-Object @{n="Server";e={$server.Address}}, TypeName
+} | Sort-Object Server, TypeName
