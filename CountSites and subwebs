@@ -1,0 +1,65 @@
+cls
+Add-PSSnapin *Sha* -ea SilentlyContinue 
+
+#Variables
+$outputFileName = ""
+$outputFileName2 = ""
+$outputFolder = "D:\\Output\"
+$rootSite = ""
+$excl = "Audit log Reports", "Stijlbibliotheek", "Formuliersjablonen", "Documenten van siteverzameling"
+$rootSite = ""
+$Collection = @()
+
+
+$reportDate = Get-Date -Format "yyyyMMddHHmm"
+$pathNotEmpty = $outputFolder + $outputFileName + "_" + $reportDate + ".csv"
+$pathEmpty = $outputFolder + $outputFileName2 + "_" + $reportDate + ".csv"
+
+Write-Host "Getting contentdb's"
+$dbs = Get-SPContentDatabase -WebApplication DMS1 | Sort Name
+$dbCount = $dbs.Count
+$dbCounter = 0
+$grandTotalScs = 0
+$grandTotalWebs = 0
+Write-Host "Collected $dbCount databases"
+Write-host
+
+Foreach ($db in $dbs) {
+    $dbCounter ++
+    Write-Progress -Id 0 -activity "Scanning db $($db.name) . . ." -status "Scanned: $dbCounter of $dbCount" -percentComplete (($dbCounter / $dbCount)  * 100) 
+    Write-Host -ForegroundColor Cyan "db $dbCounter of $dbCount - $($db.Name)"
+    Write-Host "Getting sites in contentdb"
+    $totalWebs = 0
+    $scs = Get-SPSite -ContentDatabase $db.Name -Limit All | ? {$_.url -like "*/instellingen/*"} | sort Url
+    $scCount = $scs.Count
+    $scCounter = 0
+    Write-Host "Collected $scCount site collections"
+    
+    foreach ($sc in $scs) {
+        $scCounter ++
+        Write-Progress -Id 1 -ParentId 0 -activity "Scanning sitecollection $($sc.url) . . ." -status "Scanned: $scCounter of $scCount" -percentComplete (($scCounter / $scCount)  * 100)
+        
+        Write-host "Getting sitecollection $($sc.url)"
+        $site = Get-SPSite $sc.Url
+        Write-Host "Collecting webs"
+        $webs = Get-SPWeb -Site $site.url -limit all
+        $totalWebs += $webs.count
+    }
+    $Collection += [PSCustomObject]@{
+        dbName    = $db.Name
+        totalScs  = $scs.count
+        totalWebs = $totalWebs
+    }
+    $grandTotalScs  += $scs.count
+    $grandTotalWebs += $totalWebs
+    write-host
+}
+Write-Host
+Write-Host
+Write-Host -f Yellow "#######################################"
+Write-host "Total scs  $grandTotalScs"
+Write-host "Total webs $grandTotalWebs"
+Write-Host -f Yellow "#######################################"
+Write-Host
+Write-Host
+$Collection | Format-Table -AutoSize
