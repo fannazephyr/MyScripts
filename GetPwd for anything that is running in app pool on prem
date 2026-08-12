@@ -1,0 +1,4 @@
+$appPools = Get-WebConfiguration -Filter '/system.applicationHost/applicationPools/add' 
+Foreach($appPool in $appPools)
+{If($appPool.ProcessModel.identityType -eq "SpecificUser")
+ {Write-Host $appPool.Name -ForegroundColor Green -NoNewlineWrite-Host " -"$appPool.ProcessModel.UserName"="$appPool.ProcessModel.Password}} 
