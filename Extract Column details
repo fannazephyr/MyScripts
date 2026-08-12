@@ -1,0 +1,2 @@
+$fields | Select-Object InternalName, Title, TypeAsString, Hidden, ReadOnlyField |
+    Export-Csv (Join-Path $targetFolder "onprem_fields.csv") -NoTypeInformation -Encoding UTF8
