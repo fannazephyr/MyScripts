@@ -1,0 +1,20 @@
+Install-Module ExchangeOnlineManagement
+Import-Module ExchangeOnlineManagement
+Import-Module Microsoft.Online.SharePoint.PowerShell
+
+
+Connect-IPPSSession -ErrorAction Stop 
+
+#Start parameters
+$policyName = ""
+$policy = Get-RetentionCompliancePolicy -Identity $policyName
+#End parameters 
+
+#add sites to retention policy
+Set-RetentionCompliancePolicy -AddSharePointLocationException "","" -AddModernGroupLocationException "wsfdfg@sdfdc.om" -Identity $policy.Name -ErrorAction Stop
+Set-RetentionCompliancePolicy -AddModernGroupLocationException "emailid" -Identity $policy.Name -ErrorAction Stop
+Disconnect-ExchangeOnline -Confirm:$false
+
+#remove from retention policy
+Set-RetentionCompliancePolicy -RemoveSharePointLocationException "" -RemoveModernGroupLocationException "sqwds@sdf.com" -Identity $policy.Name -ErrorAction Stop
+Disconnect-ExchangeOnline -Confirm:$false
