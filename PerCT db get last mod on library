@@ -1,0 +1,121 @@
+
+Add-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue
+
+# ---------- SETTINGS ----------
+$ContentDbName   = ""     # <= the ONE content DB to scan
+$WebAppUrl       = ""      # web application URL
+$ManagedPath     = ""              # scope to //
+$ListInternal    = "Documenten"                  # internal name (URL segment)
+$excl = "Audit log Reports", "Stijlbibliotheek", "Formuliersjablonen", "Documenten van siteverzameling"
+$OutCsv          = ""
+# -----------------------------
+
+# Build prefix for fast StartsWith() filtering (no regex)
+$prefix = $WebAppUrl.TrimEnd('/') + $ManagedPath
+
+# Resolve the DB
+$db = Get-SPContentDatabase $ContentDbName
+if (-not $db) { throw "Content database not found: $ContentDbName" }
+
+Write-Host "Scanning DB: $ContentDbName $prefix" -ForegroundColor Cyan
+
+# Collect candidate site collections (only //)
+$candidates = @($db.Sites | Where-Object { $_.Url.StartsWith($prefix) })
+$siteTotal  = $candidates.Count
+$siteIndex  = 0
+
+# Prepare results container
+$rows = New-Object System.Collections.Generic.List[object]
+
+foreach ($sc in $candidates) {
+    $siteIndex++
+    $pct = [math]::Floor(($siteIndex / [math]::Max($siteTotal,1)) * 100)
+    Write-Progress -Id 1 -Activity "Scanning sites in DB: $ContentDbName" -Status "$siteIndex of $siteTotal : $($sc.Url)" -PercentComplete $pct
+
+    try {
+        $list = $null
+        $site = Get-SPSite $sc.Url
+        $web  = $site.RootWeb    # keep it simple and fast; you don't need subsites
+
+        # Find the library by internal name (URL segment)
+        $list = $web.Lists | Where-Object {
+            $_.BaseTemplate -eq [Microsoft.SharePoint.SPListTemplateType]::DocumentLibrary -and
+            $_.RootFolder.Name -eq $ListInternal
+        } | Select-Object -First 1  # FIX: ensure single SPList or $null
+
+        $libFound = ($list -ne $null -and $list.BaseTemplate -eq [Microsoft.SharePoint.SPListTemplateType]::DocumentLibrary)
+
+        # Only item-level signal; do NOT use RootFolder.TimeLastModified (list settings)
+        $lastItemMod     = $null
+        $lastItemDateStr = $null
+        $itemCount       = $null
+
+        # Prepare safe list metadata vars (for output)
+        $listTitle       = $null
+        $listCreated     = $null
+        $listLastMod     = $null
+        $listLastItemDel = $null
+
+        if ($libFound) {
+            $itemCount       = $list.ItemCount
+            $listTitle       = $list.Title
+            $listCreated     = $list.RootFolder.TimeCreated
+            $listLastMod     = $list.RootFolder.TimeLastModified
+            $listLastItemDel = $list.LastItemDeletedDate
+
+            # FIX (CAML): Get newest item by Modified DESC (recursive, top-1)
+            $q = New-Object Microsoft.SharePoint.SPQuery
+            $q.ViewAttributes = "Scope='RecursiveAll'"
+            $q.RowLimit       = 1
+            $q.Query          = "<OrderBy><FieldRef Name='Modified' Ascending='FALSE' /></OrderBy>"
+            $q.ViewFields     = "<FieldRef Name='ID' /><FieldRef Name='Modified' />"  # lean fields
+
+            $res = $list.GetItems($q)
+            if ($res.Count -gt 0) {
+                $lastItemMod     = [datetime]$res[0]["Modified"]
+                # CHANGED: you previously used date-only; keeping the same format
+                $lastItemDateStr = $lastItemMod.ToString('yyyy-MM-dd')
+            }
+        }
+
+        # Add one line per site (lightweight)
+        $rows.Add([pscustomobject]@{
+            SiteUrl                     = $sc.Url
+            SiteTitle                   = $site.RootWeb.Title
+            listTitle                   = $listTitle            # CHANGED: safe access
+            listCreated                 = $listCreated          # CHANGED: safe access
+            listLastMod                 = $listLastMod          # CHANGED: safe access
+            DocumentenFound             = $libFound
+            Documenten_ItemCount        = $itemCount
+            Documenten_LastItemModified = $lastItemDateStr      # CHANGED: CAML-derived newest item date
+            listLastItemDel             = $listLastItemDel      # CHANGED: safe access
+        })
+    }
+    catch {
+        # Record the error row but keep going
+        $rows.Add([pscustomobject]@{
+            SiteUrl                     = $sc.Url
+            SiteTitle                   = $null
+            listTitle                   = $null                 # FIX: avoid referencing $list in catch
+            listCreated                 = $null                 # FIX
+            listLastMod                 = $null                 # FIX
+            DocumentenFound             = $false
+            Documenten_ItemCount        = $null
+            Documenten_LastItemModified = $null
+            listLastItemDel             = $null                 # FIX
+            Error                       = $_.Exception.Message
+        })
+    }
+    finally {
+        if ($site) { $site.Dispose() }   # Dispose each SPSite we touch
+    }
+}
+
+Write-Progress -Id 1 -Activity "Completed"
+
+# Export once (fast)
+$rows |
+    Sort-Object SiteUrl |
+    Export-Csv -Path $OutCsv -NoTypeInformation -Encoding UTF8
+
+Write-Host "Done. Sites scanned: $siteTotal  | Output: $OutCsv" -ForegroundColor Green
