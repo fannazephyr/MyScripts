@@ -8,7 +8,7 @@ Get-PnPContentType -List $list
 
 ----------------------------------------------------------------------------------------------
 $usedTerms = @{}
-Get-SPSite "https://connect.stelan.nl/" -Limit All| foreach {
+Get-SPSite "" -Limit All| foreach {
     $web = $_.OpenWeb()
     $list = $web.Lists | where { $_.Title -eq "TaxonomyHiddenList" }
     $list.Items | foreach {
