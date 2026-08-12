@@ -1,0 +1,64 @@
+Get-SPContentDatabase -WebApplication $webapp
+
+----------------------------------------------------------------------------------------------
+Get-PnPTerm -TermSet "hashtags" -TermGroup "System" -IncludeChildTerms)
+
+----------------------------------------------------------------------------------------------
+Get-PnPContentType -List $list
+
+----------------------------------------------------------------------------------------------
+$usedTerms = @{}
+Get-SPSite "https://connect.stelan.nl/" -Limit All| foreach {
+    $web = $_.OpenWeb()
+    $list = $web.Lists | where { $_.Title -eq "TaxonomyHiddenList" }
+    $list.Items | foreach {
+        if ($_ -ne $null)
+        {
+            $key = ($_["Path"] + " (" + $_["IdForTerm"] + ")")
+            if ($usedTerms.ContainsKey($key))
+            {
+                $usedTerms[$key] = ($usedTerms[$key] + ", " + $web.Url)
+            }
+            else
+            {
+                $usedTerms.Add($key, $web.Url)
+            }
+        }
+    }
+}
+
+
+$usedTerms
+
+----------------------------------------------------------------------------------------------
+
+Get-PnPWebPartProperty -ServerRelativePageUrl $serverRelativePageUrl  -Identity "65b45b4f-5034-4e9b-b54d-aca8303fe802"
+
+
+--------------------------------------------------------------------------------------
+
+Add-PSSnapin "Sha" -ErrorAction SilentlyContinue
+Add-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue
+#Get All Servers in SharePoint Farm (including SQL Server, SMTP Server, Etc)
+Get-SPServer | select Name, Role, Status | Format-table -AutoSize
+
+
+Get-SPServer | where { $_.role -ne "Invalid"}
+	
+Get-SPDatabase | Add-SPShellAdmin "domain/username"
+$webapp=Get-SPWebApplication " "
+
+$cdb=Get-SPContentDatabase -WebApplication $webapp
+foreach($site in $cdb)
+{
+
+$site.Sites.Names
+Get-SPSite '' | Get-SPWeb -Limit All | Select Title
+}
+
+($webapp | Get-SPSite -Limit All | Get-SPWeb -Limit All).Count | Select Title, URL
+$SubSiteCount = (Get-SPSite -Identity "" | Get-SPWeb -Limit all).Count
+Get-SPContentDatabase | Sort-Object Name | Format-Table -AutoSize Name,ID,@{Label="Sites"; Expression={$_.CurrentSiteCount}},@{Label="Size GB"; Expression={[math]::Round(($_.DiskSizeRequired / 1024/1024/1024),2)}},Status
+---------------------------------
+
+
