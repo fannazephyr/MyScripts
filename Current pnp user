@@ -1,0 +1,5 @@
+# Shows the UPN/email used for the current PnP connection (SharePoint resource)
+$tok = Get-PnPAccessToken
+$pay = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($tok.Split('.')[1].Replace('-','+').Replace('_','/') + ('=' * ((4 - $tok.Split('.')[1].Length % 4) % 4)))))
+($pay | ConvertFrom-Json).preferred_username ?? ($pay | ConvertFrom-Json).upn
+``
